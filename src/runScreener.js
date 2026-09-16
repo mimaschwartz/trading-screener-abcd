@@ -25,8 +25,18 @@ function parseArgs(argv) {
   return { mode };
 }
 
-function isHoliday(date, config) {
-  const iso = date.toISOString().slice(0, 10);
+function isNonTradingDay(date, config) {
+  // ET weekday/date, not UTC — a UTC date can already be the next ET day.
+  const etParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.session.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  }).formatToParts(date);
+  const iso = `${etParts.find((p) => p.type === 'year').value}-${etParts.find((p) => p.type === 'month').value}-${etParts.find((p) => p.type === 'day').value}`;
+  const weekday = etParts.find((p) => p.type === 'weekday').value; // "Sat"/"Sun"/...
+  if (weekday === 'Sat' || weekday === 'Sun') return true;
   return config.holidays2026.includes(iso);
 }
 
@@ -53,9 +63,9 @@ async function main() {
   const now = new Date();
   console.log(`[runScreener] mode=${mode} at ${now.toISOString()}`);
 
-  if (isHoliday(now, config)) {
-    console.log('[runScreener] market holiday — no-op run');
-    console.log(JSON.stringify({ mode, skipped: 'holiday' }));
+  if (isNonTradingDay(now, config)) {
+    console.log('[runScreener] weekend/holiday — no-op run');
+    console.log(JSON.stringify({ mode, skipped: 'non-trading-day' }));
     return;
   }
 
