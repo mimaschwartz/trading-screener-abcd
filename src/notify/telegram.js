@@ -62,6 +62,7 @@ async function sendTelegramMessage(text, config) {
       });
       const json = await res.json();
       if (!json.ok) console.warn('[telegram] API returned error:', json.description);
+      else console.log(`[telegram] sent successfully (attempt ${attempt}/${maxAttempts})`);
       return json;
     } catch (err) {
       lastError = err;
