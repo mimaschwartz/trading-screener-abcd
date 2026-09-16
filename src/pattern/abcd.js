@@ -5,7 +5,12 @@
 // C = pullback low after B (higher low than A)
 // Entry ("ReadyAtC") = confirmed turn back up off C, while price is still
 //   below B — this is the alert point, not a breakout above B.
-// T1 = B (first target), T2 = C + (B - A) (measured-move extended target)
+// Stop = C low minus an ATR(14) buffer (absorbs normal wicks/noise).
+// Targets are fib extensions of the A-to-B move, projected from C:
+//   T1 = C + 0.5*(B-A), T2 = C + 1.0*(B-A) (measured move / "D"),
+//   T3 = C + 1.618*(B-A) (extended).
+
+const { computeAtrSeries } = require('../indicators/atr');
 
 function findSwingPoints(bars, { leftBars = 2, rightBars = 2 } = {}) {
   const points = [];
@@ -27,14 +32,15 @@ function averageVolume(bars, endIndexExclusive, lookback = 20) {
   return slice.reduce((sum, b) => sum + (b.v || 0), 0) / slice.length;
 }
 
-function evaluateTurn(bars, cIndex, config) {
+function evaluateTurn(bars, cIndex, config, stopPrice) {
   const { turnConfirmationBars, minTurnVolumeMultiple } = config.pattern;
   const cBar = bars[cIndex];
   const windowEnd = Math.min(bars.length, cIndex + 1 + turnConfirmationBars);
   const window = bars.slice(cIndex + 1, windowEnd);
+  const invalidationLevel = stopPrice != null ? stopPrice : cBar.l;
 
-  // Invalidated if price makes a new low below C before turning.
-  if (window.some((b) => b.l < cBar.l)) {
+  // Invalidated if price actually hits the (ATR-buffered) stop before turning.
+  if (window.some((b) => b.l < invalidationLevel)) {
     return { state: 'invalidated' };
   }
 
@@ -64,9 +70,12 @@ function detectAbcdSetups(bars, config) {
   const { minAtoBMovePct, minRetracePct, maxRetracePct, maxPullbackVolumeRatioOfB, swingLookbackBars } =
     config.pattern;
 
+  const { stopAtrPeriod, stopAtrMultiplier, t1FibLevel, t3FibLevel } = config.pattern;
+
   const lookback = bars.slice(-swingLookbackBars);
   const offset = bars.length - lookback.length;
   const swings = findSwingPoints(lookback);
+  const atrSeries = computeAtrSeries(lookback, stopAtrPeriod);
 
   const lows = swings.filter((s) => s.type === 'low');
   const highs = swings.filter((s) => s.type === 'high');
@@ -85,8 +94,12 @@ function detectAbcdSetups(bars, config) {
         if (retrace < minRetracePct || retrace > maxRetracePct) continue;
         if (c.bar.v > b.bar.v * maxPullbackVolumeRatioOfB) continue;
 
+        const atrAtC = atrSeries[c.index];
+        const stopBuffer = atrAtC != null ? atrAtC * stopAtrMultiplier : 0;
+        const stopPrice = c.bar.l - stopBuffer;
+
         const cIndexGlobal = c.index; // already relative to `lookback`, same indexing used by evaluateTurn below since we pass `lookback`
-        const turn = evaluateTurn(lookback, cIndexGlobal, config);
+        const turn = evaluateTurn(lookback, cIndexGlobal, config, stopPrice);
 
         const base = {
           aIndex: a.index + offset,
@@ -98,9 +111,10 @@ function detectAbcdSetups(bars, config) {
           aPrice: a.bar.l,
           bPrice: b.bar.h,
           cPrice: c.bar.l,
-          t1: b.bar.h,
+          t1: c.bar.l + t1FibLevel * moveAB,
           t2: c.bar.l + moveAB,
-          stopPrice: c.bar.l,
+          t3: c.bar.l + t3FibLevel * moveAB,
+          stopPrice,
         };
 
         if (turn.state === 'confirmed') {

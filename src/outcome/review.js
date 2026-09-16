@@ -36,6 +36,7 @@ function trackOutcome(record, barsAfterEntry) {
   let maxFavorablePct = 0;
   let maxAdversePct = 0;
   let t1Hit = false;
+  let t2Hit = false;
 
   for (const bar of barsAfterEntry) {
     maxFavorablePct = Math.max(maxFavorablePct, pctChange(record.entryPrice, bar.h));
@@ -50,18 +51,28 @@ function trackOutcome(record, barsAfterEntry) {
         maxAdversePct,
       };
     }
-    if (bar.h >= record.t2) {
+    if (record.t3 != null && bar.h >= record.t3) {
       return {
-        outcome: 'T2 Hit',
+        outcome: 'T3 Hit',
         status: 'Resolved',
-        reasoning: `Reached measured-move target ${record.t2}`,
+        reasoning: `Reached extended target ${record.t3}`,
         maxFavorablePct,
         maxAdversePct,
       };
     }
+    if (bar.h >= record.t2) t2Hit = true;
     if (bar.h >= record.t1) t1Hit = true;
   }
 
+  if (t2Hit) {
+    return {
+      outcome: 'T2 Hit',
+      status: 'InProgress',
+      reasoning: `Reached measured-move target T2 (${record.t2}), still tracking toward T3`,
+      maxFavorablePct,
+      maxAdversePct,
+    };
+  }
   if (t1Hit) {
     return {
       outcome: 'T1 Hit',

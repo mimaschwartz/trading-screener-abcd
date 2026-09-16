@@ -38,6 +38,14 @@ module.exports = {
     swingLookbackBars: 180,
     // Bar interval requested from the intraday data source.
     barIntervalMinutes: 5,
+    // Stop = C low minus (ATR(14) * this multiplier), instead of a hard
+    // touch of the C low — absorbs normal noise/wicks. From the user's own
+    // prior ABCD Pine Script (atrMult default 0.5).
+    stopAtrPeriod: 14,
+    stopAtrMultiplier: 0.5,
+    // T1 = C + fib1 * (B - A); T2 (= D) = C + 1.0 * (B - A); T3 = C + fib3 * (B - A).
+    t1FibLevel: 0.5,
+    t3FibLevel: 1.618,
   },
 
   rsi: {
@@ -69,7 +77,11 @@ module.exports = {
 
   excel: {
     fileName: 'ABCD_Screener_Results.xlsx',
-    localPath: './data/ABCD_Screener_Results.xlsx',
+    // Override via EXCEL_LOCAL_PATH env var to point at a synced folder
+    // (OneDrive, Google Drive Desktop, etc.) — kept out of this public repo
+    // since that path reveals personal folder structure. Falls back to a
+    // local ./data/ file for anyone else running this code.
+    localPath: process.env.EXCEL_LOCAL_PATH || './data/ABCD_Screener_Results.xlsx',
   },
 
   telegram: {

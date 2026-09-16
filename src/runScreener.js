@@ -10,6 +10,7 @@ const config = require('./config');
 const { fetchUniverse, fetchAfterHoursMovers } = require('./dataSources/tvScanner');
 const { fetchIntradayBars } = require('./dataSources/yahooIntraday');
 const { computeRsi } = require('./indicators/rsi');
+const { computeSessionVwapSeries } = require('./indicators/vwap');
 const { detectAbcdSetups } = require('./pattern/abcd');
 const { loadOrCreateWorkbook, saveWorkbook, upsertSetup, findOpenSetups } = require('./excel/workbook');
 const { reviewSymbolSetups } = require('./outcome/review');
@@ -82,10 +83,13 @@ async function main() {
       if (!bars || bars.length < 20) continue;
 
       const rsi = computeRsi(bars.map((b) => b.c), config.rsi.period);
+      const vwapSeries = computeSessionVwapSeries(bars);
+      const floatRotation = candidate.floatShares ? candidate.volume / candidate.floatShares : '';
       const setups = detectAbcdSetups(bars, config);
 
       for (const setup of setups) {
         const setupId = buildSetupId(candidate.symbol, setup.aTime);
+        const vwapAtC = vwapSeries[setup.cIndex];
         const record = {
           setupId,
           date: new Date(setup.aTime * 1000),
@@ -96,7 +100,9 @@ async function main() {
           price: candidate.price,
           avgVolume: candidate.averageVolume,
           relativeVolume: candidate.relativeVolume,
+          floatRotation: floatRotation !== '' ? Number(floatRotation.toFixed(2)) : '',
           rsi: rsi != null ? Number(rsi.toFixed(1)) : '',
+          vwap: vwapAtC != null ? Number(vwapAtC.toFixed(4)) : '',
           aTime: new Date(setup.aTime * 1000).toISOString(),
           aPrice: setup.aPrice,
           bTime: new Date(setup.bTime * 1000).toISOString(),
@@ -109,6 +115,7 @@ async function main() {
           stopPrice: setup.stopPrice,
           t1: setup.t1,
           t2: setup.t2,
+          t3: setup.t3,
           outcome: '',
           outcomeReasoning: '',
           maxFavorablePct: '',

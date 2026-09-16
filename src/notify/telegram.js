@@ -9,7 +9,9 @@ function formatSetupLine(s) {
     `Stop ${s.stopPrice?.toFixed ? s.stopPrice.toFixed(2) : s.stopPrice}`,
     `T1 ${s.t1?.toFixed ? s.t1.toFixed(2) : s.t1}`,
     `T2 ${s.t2?.toFixed ? s.t2.toFixed(2) : s.t2}`,
+    `T3 ${s.t3?.toFixed ? s.t3.toFixed(2) : s.t3}`,
     `RelVol ${s.relativeVolume?.toFixed ? s.relativeVolume.toFixed(1) : s.relativeVolume}x`,
+    `FloatRot ${s.floatRotation?.toFixed ? s.floatRotation.toFixed(2) : s.floatRotation}x`,
     `RSI ${s.rsi?.toFixed ? s.rsi.toFixed(0) : s.rsi}`,
   ];
   return `• ${parts.join(' | ')}`;
