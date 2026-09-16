@@ -8,6 +8,7 @@ module.exports = {
     minPrice: 8,
     maxPrice: 25,
     maxFloatShares: 10_000_000,
+    minVolume: 1_000_000, // today's session volume, absolute floor
     minRelativeVolume: 1.5, // vs 10-day average volume
     // Universe screen is sorted by relative volume desc; cap how many
     // symbols get a per-symbol intraday-bar fetch + pattern scan each run

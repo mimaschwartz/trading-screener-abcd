@@ -41,6 +41,7 @@ function buildFilterBody(universeConfig) {
       { left: 'subtype', operation: 'equal', right: 'common' },
       { left: 'exchange', operation: 'in_range', right: universeConfig.exchanges },
       { left: 'relative_volume_10d_calc', operation: 'greater', right: universeConfig.minRelativeVolume },
+      { left: 'volume', operation: 'greater', right: universeConfig.minVolume },
     ],
     options: { lang: 'en' },
     markets: ['america'],
