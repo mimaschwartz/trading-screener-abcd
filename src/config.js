@@ -13,6 +13,10 @@ module.exports = {
     // symbols get a per-symbol intraday-bar fetch + pattern scan each run
     // to bound run time / API load. Raise once real run times are known.
     maxSymbolsPerRun: 60,
+    // Per-symbol intraday-bar fetches run concurrently, this many in flight
+    // at once (sequential fetching of 60 symbols was observed to take
+    // several minutes against real network latency).
+    concurrency: 8,
   },
 
   pattern: {

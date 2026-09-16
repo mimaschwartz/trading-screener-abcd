@@ -33,6 +33,20 @@ function buildSetupId(symbol, aTimeSeconds) {
   return `${symbol}:${new Date(aTimeSeconds * 1000).toISOString()}`;
 }
 
+/** Runs `fn` over `items` with at most `limit` in flight at once. */
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await fn(items[current], current);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 async function main() {
   const { mode } = parseArgs(process.argv.slice(2));
   const now = new Date();
@@ -56,11 +70,15 @@ async function main() {
     const capped = universe.slice(0, config.universe.maxSymbolsPerRun);
     console.log(`[runScreener] universe candidates: ${universe.length}, scanning top ${capped.length}`);
 
-    for (const candidate of capped) {
+    const barsResults = await mapWithConcurrency(capped, config.universe.concurrency, async (candidate) => {
       const bars = await fetchIntradayBars(candidate.symbol, {
         barIntervalMinutes: config.pattern.barIntervalMinutes,
         rangeDays: 5,
       });
+      return { candidate, bars };
+    });
+
+    for (const { candidate, bars } of barsResults) {
       if (!bars || bars.length < 20) continue;
 
       const rsi = computeRsi(bars.map((b) => b.c), config.rsi.period);
@@ -118,11 +136,19 @@ async function main() {
   }
 
   const allStatusChanges = [];
-  for (const [symbol, records] of bySymbol) {
-    const bars = await fetchIntradayBars(symbol, {
-      barIntervalMinutes: config.pattern.barIntervalMinutes,
-      rangeDays: 5,
-    });
+  const reviewResults = await mapWithConcurrency(
+    [...bySymbol.entries()],
+    config.universe.concurrency,
+    async ([symbol, records]) => {
+      const bars = await fetchIntradayBars(symbol, {
+        barIntervalMinutes: config.pattern.barIntervalMinutes,
+        rangeDays: 5,
+      });
+      return { symbol, records, bars };
+    }
+  );
+
+  for (const { records, bars } of reviewResults) {
     if (!bars || bars.length === 0) continue;
 
     // review.js needs timestamps in seconds and cTime/entryTime comparable
